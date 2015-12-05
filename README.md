@@ -86,8 +86,12 @@ How to use it
 		AUTH_CROWD_SERVER_REST_URI = 'http://127.0.0.1:8095/crowd/rest/usermanagement/latest'
     
 	_Use given certificate file to validate https connection to Crowd server_
-	
+		
 		AUTH_CROWD_SERVER_TRUSTED_ROOT_CERTS_FILE = None
+
+	_Disable validation of server certificate for https connection to Crowd server (This is a security risk and is not recommended for production environments)_
+
+		AUTH_CROWD_SERVER_VALIDATE_CERTIFICATE = False
   
 Problems ?
 ==========

@@ -151,12 +151,19 @@ class VerifiedHTTPSConnection(httplib.HTTPSConnection):
         if self._tunnel_host:
             self.sock = sock
             self._tunnel()
+            
         # wrap the socket using verification with the root certificates of given file
-        self.sock = ssl.wrap_socket(sock,
-                                    self.key_file,
-                                    self.cert_file,
-                                    cert_reqs=ssl.CERT_REQUIRED,
-                                    ca_certs=getattr(settings, "AUTH_CROWD_SERVER_TRUSTED_ROOT_CERTS_FILE", None))
+        certs = getattr(settings, "AUTH_CROWD_SERVER_TRUSTED_ROOT_CERTS_FILE", None)
+        validate_certs = getattr(settings, "AUTH_CROWD_SERVER_VALIDATE_CERTIFICATE", True)
+        
+        if certs and validate_certs:
+          self.sock = ssl.wrap_socket(sock,
+                                      self.key_file,
+                                      self.cert_file,
+                                      cert_reqs=ssl.CERT_REQUIRED,
+                                      ca_certs=certs)
+        elif not validate_certs:
+          self.sock = ssl.wrap_socket(sock)
 
 # wraps https connections with ssl certificate verification
 class VerifiedHTTPSHandler(urllib2.HTTPSHandler):
@@ -197,8 +204,14 @@ class CrowdRestClient(object):
             handlers += [authHandler]
             
             certs = getattr(settings, "AUTH_CROWD_SERVER_TRUSTED_ROOT_CERTS_FILE", None)
-            if self._url.startswith('https') and certs:
-                crowd_logger.debug("Validating certificate with " + certs)
+            validate_certs = getattr(settings, "AUTH_CROWD_SERVER_VALIDATE_CERTIFICATE", True)
+            
+            if self._url.startswith('https') and (certs or not validate_certs):
+                if certs:
+                    crowd_logger.debug("Validating certificate with " + certs)
+                elif not validate_certs:
+                    crowd_logger.warning("Certificate validation is disabled!")
+                    
                 verifyHandler = VerifiedHTTPSHandler()
                 handlers += [verifyHandler]
             
