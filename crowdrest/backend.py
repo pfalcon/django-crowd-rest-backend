@@ -73,7 +73,8 @@ class CrowdRestBackend(object):
             saveUser = True
 
         if getattr(settings, "AUTH_CROWD_ALWAYS_UPDATE_GROUPS", True):
-            self.sync_groups(user)
+            self.sync_groups(user,
+                             is_created=created)
             saveUser = True
 
         if saveUser:
@@ -109,19 +110,24 @@ class CrowdRestBackend(object):
         if "active" in usrData:
             user.is_active = usrData["active"]
 
-    def sync_groups(self, user):
+    def sync_groups(self,
+                    user,
+                    is_created=False):
+
         data = self.crowdClient.get_user_groups(user.username)
 
         group_names = set([x["name"] for x in data["groups"]])
+        update_admin_staff_always = getattr(settings, "AUTH_CROWD_ALWAYS_UPDATE_SUPERUSER_STAFF_STATUS", False)
 
-        if getattr(settings, "AUTH_CROWD_SUPERUSER_GROUP", None) in group_names:
-            user.is_superuser = True
-        else:
-            user.is_superuser = False
-        if getattr(settings, "AUTH_CROWD_STAFF_GROUP", None) in group_names:
-            user.is_staff = True
-        else:
-            user.is_staff = False
+        if update_admin_staff_always or is_created:
+            if getattr(settings, "AUTH_CROWD_SUPERUSER_GROUP", None) in group_names:
+                user.is_superuser = True
+            else:
+                user.is_superuser = False
+            if getattr(settings, "AUTH_CROWD_STAFF_GROUP", None) in group_names:
+                user.is_staff = True
+            else:
+                user.is_staff = False
 
         if getattr(settings, "AUTH_CROWD_CREATE_GROUPS", False):
             group_objs = [Group.objects.get_or_create(name=g)[0] for g in group_names]
@@ -198,6 +204,7 @@ class CrowdRestClient(object):
                                       self._url,
                                       settings.AUTH_CROWD_APPLICATION_USER,
                                       settings.AUTH_CROWD_APPLICATION_PASSWORD)
+
             authHandler = urllib2.HTTPBasicAuthHandler(password_mgr)
             handlers += [authHandler]
 
